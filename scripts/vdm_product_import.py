@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 VDM Product Import → Shopify
-- Nieuwe producten: alles invullen
-- Bestaande producten: alleen prijs + afbeelding updaten
+- Nieuwe producten: alles invullen inclusief type/tags via mapping
+- Bestaande producten: alleen prijs + afbeelding updaten (content nooit aanraken)
 """
 
 import ftplib
@@ -12,8 +12,13 @@ import time
 import logging
 import os
 import re
+import sys
 from io import BytesIO
 from datetime import datetime
+
+# Importeer mapping (staat in zelfde scripts/ map)
+sys.path.insert(0, os.path.dirname(__file__))
+from vdm_mapping import get_mapping
 
 FTP_HOST    = os.environ.get("VDM_FTP_HOST", "ftp.vdmdtg.nl")
 FTP_USER    = os.environ.get("VDM_FTP_USER", "HondenHappiness")
@@ -38,9 +43,8 @@ def haal_access_token():
         headers={"Content-Type": "application/json"}
     )
     if r.status_code == 200:
-        token = r.json().get("access_token")
         log.info("Token opgehaald")
-        return token
+        return r.json().get("access_token")
     raise Exception(f"Token ophalen mislukt: {r.status_code} {r.text}")
 
 def download_xml():
@@ -60,11 +64,9 @@ def maak_handle(basis, sub, arintnum):
     return f"{tekst[:80]}-{arintnum}"
 
 def haal_bestaande_producten(headers, base):
-    """Haal alle bestaande producten op: SKU → {product_id, variant_id, inventory_item_id, heeft_foto}"""
     log.info("Bestaande Shopify producten ophalen...")
     producten = {}
-    
-    # Varianten ophalen voor SKU/price mapping
+
     url = f"{base}/variants.json?limit=250&fields=id,sku,product_id,inventory_item_id,price"
     while url:
         r = requests.get(url, headers=headers)
@@ -76,7 +78,7 @@ def haal_bestaande_producten(headers, base):
                     'variant_id': v['id'],
                     'inventory_item_id': v['inventory_item_id'],
                     'prijs': v.get('price'),
-                    'heeft_foto': False  # wordt hieronder ingevuld
+                    'heeft_foto': False
                 }
         link = r.headers.get('Link', '')
         url = None
@@ -87,17 +89,14 @@ def haal_bestaande_producten(headers, base):
         time.sleep(0.3)
 
     # Controleer welke producten al een afbeelding hebben
-    log.info("Controleren welke producten al een afbeelding hebben...")
-    product_ids = list(set(v['product_id'] for v in producten.values()))
-    
-    # Check per batch van 250 producten
+    log.info("Foto-status controleren...")
     url = f"{base}/products.json?limit=250&fields=id,images"
     while url:
         r = requests.get(url, headers=headers)
         r.raise_for_status()
         for p in r.json().get('products', []):
             heeft_foto = len(p.get('images', [])) > 0
-            for sku, data in producten.items():
+            for data in producten.values():
                 if data['product_id'] == p['id']:
                     data['heeft_foto'] = heeft_foto
         link = r.headers.get('Link', '')
@@ -151,6 +150,13 @@ def main():
         titel    = f"{basis.strip()} {sub.strip()}".strip().title()
         foto_url = f"{FOTO_BASE}/bigfotos/{arintnum}.jpg"
 
+        # Mapping ophalen op basis van subgroep + titelherkenning
+        mapping = get_mapping(subgroep, titel)
+        product_type = mapping["type"]
+        tags = list(mapping["tags"])
+        if merk: tags.append(f"merk-{merk.lower().replace(' ', '-')}")
+        if op_best: tags.append("op-bestelling")
+
         if arintnum in bestaande:
             bestaand = bestaande[arintnum]
             product_id = bestaand['product_id']
@@ -183,17 +189,12 @@ def main():
 
         else:
             # Nieuw product — alles invullen
-            tags = []
-            if merk: tags.append(f"merk-{merk.lower().replace(' ', '-')}")
-            if subgroep: tags.append(subgroep.lower().replace(' ', '-'))
-            if op_best: tags.append("op-bestelling")
-
             product_data = {
                 "handle": maak_handle(basis, sub, arintnum),
                 "title": titel,
                 "body_html": beschr.strip() or f"{titel} van {merk}.",
                 "vendor": merk.title() or "Onbekend",
-                "product_type": subgroep.title(),
+                "product_type": product_type,
                 "tags": ", ".join(tags),
                 "status": "active",
                 "variants": [{
