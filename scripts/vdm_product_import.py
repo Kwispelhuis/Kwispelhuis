@@ -7,36 +7,50 @@ Draait dagelijks om 8:00 via GitHub Actions
 import ftplib
 import xml.etree.ElementTree as ET
 import requests
-import json
 import time
 import logging
 import os
-import html
 import re
 from io import BytesIO
 from datetime import datetime
 
-# ─── CONFIG (via environment variables) ──────────────────────────────────────
-FTP_HOST     = os.environ.get("VDM_FTP_HOST", "ftp.vdmdtg.nl")
-FTP_USER     = os.environ.get("VDM_FTP_USER", "HondenHappiness")
-FTP_PASS     = os.environ.get("VDM_FTP_PASS", "OLgH29N2B8JqWln9")
-FTP_BESTAND  = "/export/exportXML_UTF8.xml"
+# ─── CONFIG ───────────────────────────────────────────────────────────────────
+FTP_HOST    = os.environ.get("VDM_FTP_HOST", "ftp.vdmdtg.nl")
+FTP_USER    = os.environ.get("VDM_FTP_USER", "HondenHappiness")
+FTP_PASS    = os.environ.get("VDM_FTP_PASS", "OLgH29N2B8JqWln9")
+FTP_BESTAND = "/export/exportXML_UTF8.xml"
 
-SHOPIFY_DOMAIN = os.environ.get("SHOPIFY_DOMAIN", "xjwcui-7s.myshopify.com")
-SHOPIFY_TOKEN  = os.environ.get("SHOPIFY_TOKEN")
-FOTO_BASE      = os.environ.get("FOTO_BASE", "https://fotos.kwispelhuis.nl")
+SHOPIFY_DOMAIN    = os.environ.get("SHOPIFY_DOMAIN", "xjwcui-7s.myshopify.com")
+CLIENT_ID         = os.environ.get("SHOPIFY_CLIENT_ID")
+CLIENT_SECRET     = os.environ.get("SHOPIFY_CLIENT_SECRET")
+FOTO_BASE         = os.environ.get("FOTO_BASE", "https://fotos.kwispelhuis.nl")
 
-SHOPIFY_BASE = f"https://{SHOPIFY_DOMAIN}/admin/api/2024-01"
-HEADERS = {"X-Shopify-Access-Token": SHOPIFY_TOKEN, "Content-Type": "application/json"}
+ALLEEN_HOOFDGROEP = "HOND"
+EXCLUDE_DIEPVRIES = True
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 log = logging.getLogger(__name__)
 
-# ─── FILTERS ─────────────────────────────────────────────────────────────────
-ALLEEN_HOOFDGROEP = "HOND"
-EXCLUDE_DIEPVRIES = True
+def haal_access_token():
+    """Haal access token op via client credentials"""
+    log.info("Shopify access token ophalen...")
+    r = requests.post(
+        f"https://{SHOPIFY_DOMAIN}/admin/oauth/access_token",
+        json={
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
+            "grant_type": "client_credentials"
+        },
+        headers={"Content-Type": "application/json"}
+    )
+    if r.status_code == 200:
+        token = r.json().get("access_token")
+        log.info("Token opgehaald")
+        return token
+    else:
+        raise Exception(f"Token ophalen mislukt: {r.status_code} {r.text}")
 
-def download_xml():
+def download_xml(token):
     log.info("FTP: exportXML_UTF8.xml downloaden...")
     buf = BytesIO()
     with ftplib.FTP(FTP_HOST) as ftp:
@@ -53,25 +67,21 @@ def maak_handle(basis, sub, arintnum):
     return f"{tekst[:80]}-{arintnum}"
 
 def verwerk_product(p):
-    arintnum  = p.findtext('ARINTNUM') or ''
-    basis     = p.findtext('BASIS_OMS') or ''
-    sub       = p.findtext('SUB_OMS') or ''
-    merk      = p.findtext('MERK') or ''
-    subgroep  = p.findtext('SUBGROEP') or ''
-    hoofdgroep= p.findtext('HOOFDGROEP') or ''
-    ean       = p.findtext('EAN') or ''
-    gewicht   = int(p.findtext('GEWICHT') or 0)
-    voorraad  = int(p.findtext('VOORRAAD_CNS_EENHEID') or 0)
-    prijs     = float(p.findtext('ADVIESPRIJS_INC_STUK') or 0)
-    cost      = float(p.findtext('UWPRIJS_EXC') or 0)
-    beschr    = p.findtext('ARTIKEL_CONTENT_HTML') or ''
-    op_best   = p.findtext('OPBESTELLING') == '1'
-    verzend   = p.findtext('VERZENDWIJZE') or ''
+    arintnum   = p.findtext('ARINTNUM') or ''
+    basis      = p.findtext('BASIS_OMS') or ''
+    sub        = p.findtext('SUB_OMS') or ''
+    merk       = p.findtext('MERK') or ''
+    subgroep   = p.findtext('SUBGROEP') or ''
+    ean        = p.findtext('EAN') or ''
+    gewicht    = int(p.findtext('GEWICHT') or 0)
+    voorraad   = int(p.findtext('VOORRAAD_CNS_EENHEID') or 0)
+    prijs      = float(p.findtext('ADVIESPRIJS_INC_STUK') or 0)
+    cost       = float(p.findtext('UWPRIJS_EXC') or 0)
+    beschr     = p.findtext('ARTIKEL_CONTENT_HTML') or ''
+    op_best    = p.findtext('OPBESTELLING') == '1'
+    verzend    = p.findtext('VERZENDWIJZE') or ''
 
     titel = f"{basis.strip()} {sub.strip()}".strip().title()
-    handle = maak_handle(basis, sub, arintnum)
-    foto = f"{FOTO_BASE}/bigfotos/{arintnum}.jpg"
-
     tags = []
     if merk: tags.append(f"merk-{merk.lower().replace(' ', '-')}")
     if subgroep: tags.append(subgroep.lower().replace(' ', '-'))
@@ -79,7 +89,7 @@ def verwerk_product(p):
     if verzend == 'diepvries': tags.append("diepvries")
 
     return {
-        "handle": handle,
+        "handle": maak_handle(basis, sub, arintnum),
         "title": titel,
         "body_html": beschr.strip() or f"{titel} van {merk}.",
         "vendor": merk.title() or "Onbekend",
@@ -99,7 +109,7 @@ def verwerk_product(p):
             "weight": round(gewicht / 1000, 3),
             "weight_unit": "kg",
         }],
-        "images": [{"src": foto, "alt": titel}],
+        "images": [{"src": f"{FOTO_BASE}/bigfotos/{arintnum}.jpg", "alt": titel}],
         "metafields": [
             {"namespace": "custom", "key": "vdm_id", "value": arintnum, "type": "single_line_text_field"},
             {"namespace": "custom", "key": "ean", "value": ean, "type": "single_line_text_field"},
@@ -107,21 +117,16 @@ def verwerk_product(p):
         ]
     }
 
-def haal_bestaande_skus():
-    """Haal alle bestaande SKUs op uit Shopify"""
+def haal_bestaande_skus(headers, base):
     log.info("Bestaande Shopify SKUs ophalen...")
     skus = {}
-    url = f"{SHOPIFY_BASE}/variants.json?limit=250&fields=id,sku,product_id,inventory_item_id"
+    url = f"{base}/variants.json?limit=250&fields=id,sku,product_id,inventory_item_id"
     while url:
-        r = requests.get(url, headers=HEADERS)
+        r = requests.get(url, headers=headers)
         r.raise_for_status()
         for v in r.json().get('variants', []):
             if v.get('sku'):
-                skus[v['sku']] = {
-                    'variant_id': v['id'],
-                    'product_id': v['product_id'],
-                    'inventory_item_id': v['inventory_item_id']
-                }
+                skus[v['sku']] = {'product_id': v['product_id'], 'inventory_item_id': v['inventory_item_id']}
         link = r.headers.get('Link', '')
         url = None
         if 'rel="next"' in link:
@@ -132,78 +137,53 @@ def haal_bestaande_skus():
     log.info(f"  {len(skus)} bestaande SKUs gevonden")
     return skus
 
-def maak_product_aan(product_data):
-    r = requests.post(f"{SHOPIFY_BASE}/products.json",
-                      headers=HEADERS,
-                      json={"product": product_data})
-    if r.status_code == 201:
-        return r.json()['product']['id']
-    else:
-        log.warning(f"Fout aanmaken {product_data['variants'][0]['sku']}: {r.status_code} {r.text[:150]}")
-        return None
-
-def update_product(product_id, product_data):
-    # Update alleen basis velden, niet title/description (SEO aanpassingen bewaren)
-    update = {
-        "id": product_id,
-        "vendor": product_data["vendor"],
-        "product_type": product_data["product_type"],
-        "tags": product_data["tags"],
-    }
-    r = requests.put(f"{SHOPIFY_BASE}/products/{product_id}.json",
-                     headers=HEADERS,
-                     json={"product": update})
-    return r.status_code == 200
-
 def main():
     start = datetime.now()
     log.info("=" * 60)
     log.info(f"Product import gestart: {start.strftime('%Y-%m-%d %H:%M')}")
 
-    # Download en parse XML
-    buf = download_xml()
+    token = haal_access_token()
+    HEADERS = {"X-Shopify-Access-Token": token, "Content-Type": "application/json"}
+    BASE = f"https://{SHOPIFY_DOMAIN}/admin/api/2024-01"
+
+    buf = download_xml(token)
     tree = ET.parse(buf)
     root = tree.getroot()
     alle = root.findall('Product')
     log.info(f"Totaal in XML: {len(alle)} producten")
 
-    # Filter
-    gefilterd = []
-    for p in alle:
-        if ALLEEN_HOOFDGROEP and p.findtext('HOOFDGROEP') != ALLEEN_HOOFDGROEP:
-            continue
-        if EXCLUDE_DIEPVRIES and p.findtext('VERZENDWIJZE') == 'diepvries':
-            continue
-        gefilterd.append(p)
-    log.info(f"Na filter ({ALLEEN_HOOFDGROEP}, geen diepvries): {len(gefilterd)} producten")
+    gefilterd = [p for p in alle
+                 if (not ALLEEN_HOOFDGROEP or p.findtext('HOOFDGROEP') == ALLEEN_HOOFDGROEP)
+                 and not (EXCLUDE_DIEPVRIES and p.findtext('VERZENDWIJZE') == 'diepvries')]
+    log.info(f"Na filter: {len(gefilterd)} producten")
 
-    # Bestaande SKUs ophalen
-    bestaande = haal_bestaande_skus()
+    bestaande = haal_bestaande_skus(HEADERS, BASE)
 
-    nieuw = 0
-    bijgewerkt = 0
-    fouten = 0
+    nieuw = bijgewerkt = fouten = 0
 
     for p in gefilterd:
         arintnum = p.findtext('ARINTNUM')
-        product_data = verwerk_product(p)
+        data = verwerk_product(p)
 
         if arintnum in bestaande:
-            # Bestaand product — update alleen niet-SEO velden
             product_id = bestaande[arintnum]['product_id']
-            if update_product(product_id, product_data):
+            r = requests.put(f"{BASE}/products/{product_id}.json",
+                             headers=HEADERS,
+                             json={"product": {"id": product_id, "vendor": data["vendor"],
+                                               "product_type": data["product_type"], "tags": data["tags"]}})
+            if r.status_code == 200:
                 bijgewerkt += 1
             else:
                 fouten += 1
         else:
-            # Nieuw product aanmaken
-            pid = maak_product_aan(product_data)
-            if pid:
+            r = requests.post(f"{BASE}/products.json", headers=HEADERS, json={"product": data})
+            if r.status_code == 201:
                 nieuw += 1
             else:
+                log.warning(f"Fout {arintnum}: {r.status_code} {r.text[:100]}")
                 fouten += 1
 
-        time.sleep(0.5)  # rate limit
+        time.sleep(0.5)
 
     duur = (datetime.now() - start).seconds
     log.info(f"Klaar in {duur}s — Nieuw: {nieuw}, Bijgewerkt: {bijgewerkt}, Fouten: {fouten}")
