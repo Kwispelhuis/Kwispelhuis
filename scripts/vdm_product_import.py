@@ -144,16 +144,29 @@ def haal_bestaande_producten(headers, base):
 
 
 def upload_foto(headers, base, product_id, arintnum, titel, foto_b64):
-    r = requests.post(
-        f"{base}/products/{product_id}/images.json",
-        headers=headers,
-        json={"image": {
-            "attachment": foto_b64,
-            "filename": f"{arintnum}.jpg",
-            "alt": titel
-        }}
-    )
-    return r.status_code in (200, 201)
+    # Check bestandsgrootte (max 15MB als base64)
+    if len(foto_b64) > 20_000_000:
+        log.warning(f"Foto {arintnum} te groot ({len(foto_b64)} bytes), overgeslagen")
+        return False
+    for poging in range(3):
+        r = requests.post(
+            f"{base}/products/{product_id}/images.json",
+            headers=headers,
+            json={"image": {
+                "attachment": foto_b64,
+                "filename": f"{arintnum}.jpg",
+                "alt": titel
+            }}
+        )
+        if r.status_code in (200, 201):
+            return True
+        if r.status_code == 429:
+            log.warning(f"Rate limit foto {arintnum}, wacht 10s...")
+            time.sleep(10)
+        else:
+            log.warning(f"Foto upload fout {arintnum}: {r.status_code} {r.text[:80]}")
+            return False
+    return False
 
 
 def main():
@@ -236,23 +249,34 @@ def main():
                 # Prijs updaten als gewijzigd
                 nieuwe_prijs = str(round(prijs, 2))
                 if bestaand['prijs'] != nieuwe_prijs:
-                    r = requests.put(f"{BASE}/variants/{variant_id}.json",
-                                     headers=HEADERS,
-                                     json={"variant": {"id": variant_id, "price": nieuwe_prijs,
-                                                       "cost": str(round(cost, 2))}})
-                    if r.status_code == 200:
-                        prijs_updates += 1
-                    else:
-                        log.warning(f"Prijs update fout {arintnum}: {r.status_code}")
-                        fouten += 1
-                    time.sleep(0.3)
+                    for poging in range(3):
+                        r = requests.put(f"{BASE}/variants/{variant_id}.json",
+                                         headers=HEADERS,
+                                         json={"variant": {"id": variant_id, "price": nieuwe_prijs,
+                                                           "cost": str(round(cost, 2))}})
+                        if r.status_code == 200:
+                            prijs_updates += 1
+                            break
+                        elif r.status_code == 429:
+                            log.warning(f"Rate limit prijs {arintnum}, wacht 10s...")
+                            time.sleep(10)
+                        else:
+                            log.warning(f"Prijs update fout {arintnum}: {r.status_code}")
+                            fouten += 1
+                            break
+                    time.sleep(0.5)
 
-                # Tags en product_type updaten als die ontbreken of incorrect zijn
-                update = {}
+                # Tags samenvoegen: bestaande tags behouden + onze tags toevoegen
+                bestaande_tags = set(t.strip() for t in bestaand['tags'].split(',') if t.strip())
+                onze_tags = set(tags)
+                if not onze_tags.issubset(bestaande_tags):
+                    alle_tags = bestaande_tags | onze_tags
+                    update = {}
+                    update['tags'] = ', '.join(sorted(alle_tags))
+                else:
+                    update = {}
                 if bestaand['product_type'] != product_type:
                     update['product_type'] = product_type
-                if not bestaand['tags']:
-                    update['tags'] = ', '.join(tags)
                 if update:
                     r = requests.put(f"{BASE}/products/{product_id}.json",
                                      headers=HEADERS,
