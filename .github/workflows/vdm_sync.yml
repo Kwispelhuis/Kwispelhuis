@@ -1,0 +1,59 @@
+name: VDM Sync
+
+on:
+  schedule:
+    # Product import: elke dag om 8:00 NL tijd (6:00 UTC)
+    - cron: '0 6 * * *'
+    # Voorraad sync: elke 15 minuten
+    - cron: '*/15 * * * *'
+  workflow_dispatch:  # Handmatig starten via GitHub UI
+
+jobs:
+  product-import:
+    name: Product Import (dagelijks 8:00)
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '0 6 * * *' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python instellen
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Dependencies installeren
+        run: pip install requests
+
+      - name: Product import uitvoeren
+        env:
+          VDM_FTP_HOST: ${{ secrets.VDM_FTP_HOST }}
+          VDM_FTP_USER: ${{ secrets.VDM_FTP_USER }}
+          VDM_FTP_PASS: ${{ secrets.VDM_FTP_PASS }}
+          SHOPIFY_DOMAIN: ${{ secrets.SHOPIFY_DOMAIN }}
+          SHOPIFY_TOKEN: ${{ secrets.SHOPIFY_TOKEN }}
+          FOTO_BASE: ${{ secrets.FOTO_BASE }}
+        run: python scripts/vdm_product_import.py
+
+  voorraad-sync:
+    name: Voorraad Sync (elke 15 min)
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '*/15 * * * *' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python instellen
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Dependencies installeren
+        run: pip install requests
+
+      - name: Voorraad sync uitvoeren
+        env:
+          VDM_FTP_HOST: ${{ secrets.VDM_FTP_HOST }}
+          VDM_FTP_USER: ${{ secrets.VDM_FTP_USER }}
+          VDM_FTP_PASS: ${{ secrets.VDM_FTP_PASS }}
+          SHOPIFY_DOMAIN: ${{ secrets.SHOPIFY_DOMAIN }}
+          SHOPIFY_TOKEN: ${{ secrets.SHOPIFY_TOKEN }}
+        run: python scripts/vdm_voorraad_sync.py
