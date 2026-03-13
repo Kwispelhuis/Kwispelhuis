@@ -247,20 +247,19 @@ def main():
                         fouten += 1
                     time.sleep(0.3)
 
-                # Tags en product_type updaten als die nog leeg zijn
-                if not bestaand['product_type'] or not bestaand['tags']:
-                    update = {}
-                    if not bestaand['product_type']:
-                        update['product_type'] = product_type
-                    if not bestaand['tags']:
-                        update['tags'] = ', '.join(tags)
-                    if update:
-                        r = requests.put(f"{BASE}/products/{product_id}.json",
-                                         headers=HEADERS,
-                                         json={"product": update})
-                        if r.status_code != 200:
-                            log.warning(f"Tags update fout {arintnum}: {r.status_code}")
-                        time.sleep(0.3)
+                # Tags en product_type updaten als die ontbreken of incorrect zijn
+                update = {}
+                if bestaand['product_type'] != product_type:
+                    update['product_type'] = product_type
+                if not bestaand['tags']:
+                    update['tags'] = ', '.join(tags)
+                if update:
+                    r = requests.put(f"{BASE}/products/{product_id}.json",
+                                     headers=HEADERS,
+                                     json={"product": update})
+                    if r.status_code != 200:
+                        log.warning(f"Tags/type update fout {arintnum}: {r.status_code}")
+                    time.sleep(0.3)
 
                 # Foto uploaden als die ontbreekt
                 if not bestaand['heeft_foto'] and foto_b64:
