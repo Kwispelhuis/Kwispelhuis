@@ -93,20 +93,19 @@ def maak_handle(basis, sub, arintnum):
 def haal_bestaande_producten(headers, base):
     log.info("Bestaande Shopify producten ophalen...")
     producten = {}
+    prod_info = {}
 
-    url = f"{base}/variants.json?limit=250&fields=id,sku,product_id,inventory_item_id,price"
+    log.info("Product info + foto-status ophalen...")
+    url = f"{base}/products.json?limit=250&fields=id,tags,product_type,images"
     while url:
         r = requests.get(url, headers=headers)
         r.raise_for_status()
-        for v in r.json().get('variants', []):
-            if v.get('sku'):
-                producten[v['sku']] = {
-                    'product_id': v['product_id'],
-                    'variant_id': v['id'],
-                    'inventory_item_id': v['inventory_item_id'],
-                    'prijs': v.get('price'),
-                    'heeft_foto': False
-                }
+        for p in r.json().get('products', []):
+            prod_info[p['id']] = {
+                'tags': p.get('tags', ''),
+                'product_type': p.get('product_type', ''),
+                'heeft_foto': len(p.get('images', [])) > 0
+            }
         link = r.headers.get('Link', '')
         url = None
         if 'rel="next"' in link:
@@ -115,16 +114,23 @@ def haal_bestaande_producten(headers, base):
                     url = part.strip().split(';')[0].strip('<> ')
         time.sleep(0.3)
 
-    log.info("Foto-status controleren...")
-    url = f"{base}/products.json?limit=250&fields=id,images"
+    url = f"{base}/variants.json?limit=250&fields=id,sku,product_id,inventory_item_id,price"
     while url:
         r = requests.get(url, headers=headers)
         r.raise_for_status()
-        for p in r.json().get('products', []):
-            heeft_foto = len(p.get('images', [])) > 0
-            for data in producten.values():
-                if data['product_id'] == p['id']:
-                    data['heeft_foto'] = heeft_foto
+        for v in r.json().get('variants', []):
+            if v.get('sku'):
+                pid = v['product_id']
+                info = prod_info.get(pid, {})
+                producten[v['sku']] = {
+                    'product_id': pid,
+                    'variant_id': v['id'],
+                    'inventory_item_id': v['inventory_item_id'],
+                    'prijs': v.get('price'),
+                    'heeft_foto': info.get('heeft_foto', False),
+                    'tags': info.get('tags', ''),
+                    'product_type': info.get('product_type', '')
+                }
         link = r.headers.get('Link', '')
         url = None
         if 'rel="next"' in link:
@@ -240,6 +246,21 @@ def main():
                         log.warning(f"Prijs update fout {arintnum}: {r.status_code}")
                         fouten += 1
                     time.sleep(0.3)
+
+                # Tags en product_type updaten als die nog leeg zijn
+                if not bestaand['product_type'] or not bestaand['tags']:
+                    update = {}
+                    if not bestaand['product_type']:
+                        update['product_type'] = product_type
+                    if not bestaand['tags']:
+                        update['tags'] = ', '.join(tags)
+                    if update:
+                        r = requests.put(f"{BASE}/products/{product_id}.json",
+                                         headers=HEADERS,
+                                         json={"product": update})
+                        if r.status_code != 200:
+                            log.warning(f"Tags update fout {arintnum}: {r.status_code}")
+                        time.sleep(0.3)
 
                 # Foto uploaden als die ontbreekt
                 if not bestaand['heeft_foto'] and foto_b64:
