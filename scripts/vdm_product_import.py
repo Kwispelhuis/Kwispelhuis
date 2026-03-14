@@ -269,14 +269,14 @@ def main():
                 # Tags samenvoegen: bestaande tags behouden + onze tags toevoegen
                 bestaande_tags = set(t.strip() for t in bestaand['tags'].split(',') if t.strip())
                 onze_tags = set(tags)
+                update = {}
                 if not onze_tags.issubset(bestaande_tags):
                     alle_tags = bestaande_tags | onze_tags
-                    update = {}
                     update['tags'] = ', '.join(sorted(alle_tags))
-                else:
-                    update = {}
+                    log.info(f"  Tags update {arintnum}: +{onze_tags - bestaande_tags}")
                 if bestaand['product_type'] != product_type:
                     update['product_type'] = product_type
+                    log.info(f"  Type update {arintnum}: {bestaand['product_type']} → {product_type}")
                 if update:
                     r = requests.put(f"{BASE}/products/{product_id}.json",
                                      headers=HEADERS,
