@@ -83,6 +83,10 @@ def main():
     url = f"{BASE}/variants.json?limit=250&fields=sku,inventory_item_id"
     while url:
         r = requests.get(url, headers=HEADERS)
+        if r.status_code == 429:
+            log.warning("Rate limit, wacht 15s...")
+            time.sleep(15)
+            continue
         r.raise_for_status()
         for v in r.json().get('variants', []):
             if v.get('sku'):
