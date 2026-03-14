@@ -145,10 +145,18 @@ def titelherkenning(titel: str, huidige_tags: list, product_type: str) -> list:
 
 
 def get_mapping(subgroep: str, titel: str = "") -> dict:
-    basis = SUBGROEP_MAPPING.get(subgroep, {
-        "type": subgroep.title(),
-        "tags": [subgroep.lower().replace(' ', '-').replace('/', '-')]
-    })
+    # Probeer exact, dan case-insensitive
+    basis = SUBGROEP_MAPPING.get(subgroep)
+    if basis is None:
+        for key in SUBGROEP_MAPPING:
+            if key.lower() == subgroep.lower():
+                basis = SUBGROEP_MAPPING[key]
+                break
+    if basis is None:
+        basis = {
+            "type": subgroep.title(),
+            "tags": [subgroep.lower().replace(' ', '-').replace('/', '-')]
+        }
 
     result = {
         "type": basis["type"],
