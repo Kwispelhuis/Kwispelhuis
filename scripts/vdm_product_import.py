@@ -268,13 +268,18 @@ def main():
 
                 # Tags samenvoegen: bestaande tags behouden + onze tags toevoegen
                 bestaande_tags = set(t.strip() for t in bestaand['tags'].split(',') if t.strip())
+                bestaande_tags_lower = set(t.lower() for t in bestaande_tags)
                 onze_tags = set(tags)
+                onze_tags_lower = set(t.lower() for t in onze_tags)
                 update = {}
-                if not onze_tags.issubset(bestaande_tags):
-                    alle_tags = bestaande_tags | onze_tags
+                if not onze_tags_lower.issubset(bestaande_tags_lower):
+                    # Voeg ontbrekende tags toe (gebruik originele hoofdletters)
+                    ontbrekend = onze_tags_lower - bestaande_tags_lower
+                    toe_te_voegen = {t for t in onze_tags if t.lower() in ontbrekend}
+                    alle_tags = bestaande_tags | toe_te_voegen
                     update['tags'] = ', '.join(sorted(alle_tags))
-                    log.info(f"  Tags update {arintnum}: +{onze_tags - bestaande_tags}")
-                if bestaand['product_type'] != product_type:
+                    log.info(f"  Tags update {arintnum}: +{toe_te_voegen}")
+                if bestaand['product_type'].lower() != product_type.lower():
                     update['product_type'] = product_type
                     log.info(f"  Type update {arintnum}: {bestaand['product_type']} → {product_type}")
                 if update:
