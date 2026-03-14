@@ -23,9 +23,9 @@ SUBGROEP_MAPPING = {
     "Knuffels":                     {"type": "Speelgoed",           "tags": ["speelgoed", "knuffels"]},
 
     # MANDEN & KUSSENS
-    "Bedden/Manden/Kussens":        {"type": "Manden & Kussens",    "tags": ["slapen"]},
-    "Bedden/Manden/kussens":        {"type": "Manden & Kussens",    "tags": ["slapen"]},
-    "Pantoffels":                   {"type": "Manden & Kussens",    "tags": ["slapen", "kussens"]},
+    "Bedden/Manden/Kussens":        {"type": "Manden & Kussens",    "tags": []},
+    "Bedden/Manden/kussens":        {"type": "Manden & Kussens",    "tags": []},
+    "Pantoffels":                   {"type": "Manden & Kussens",    "tags": ["kussens"]},
 
     # HALSBANDEN & LIJNEN
     "Halsbanden/Lijnen Leer":       {"type": "Halsbanden & Lijnen", "tags": ["halsbanden", "leer"]},
