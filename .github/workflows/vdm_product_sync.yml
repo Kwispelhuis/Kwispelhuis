@@ -1,0 +1,26 @@
+name: VDM Product Import
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  product-import:
+    name: Product Import (dagelijks 8:00)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests
+      - name: Product import uitvoeren
+        env:
+          VDM_FTP_HOST: ${{ secrets.VDM_FTP_HOST }}
+          VDM_FTP_USER: ${{ secrets.VDM_FTP_USER }}
+          VDM_FTP_PASS: ${{ secrets.VDM_FTP_PASS }}
+          SHOPIFY_DOMAIN: ${{ secrets.SHOPIFY_DOMAIN }}
+          SHOPIFY_CLIENT_ID: ${{ secrets.SHOPIFY_CLIENT_ID }}
+          SHOPIFY_CLIENT_SECRET: ${{ secrets.SHOPIFY_CLIENT_SECRET }}
+        run: python scripts/vdm_product_import.py
