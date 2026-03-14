@@ -243,6 +243,8 @@ def main():
 
             if arintnum in bestaande:
                 bestaand   = bestaande[arintnum]
+                if arintnum == "425":
+                    log.info(f"DEBUG 425: type={bestaand['product_type']}, tags={bestaand['tags'][:80]}")
                 product_id = bestaand['product_id']
                 variant_id = bestaand['variant_id']
 
