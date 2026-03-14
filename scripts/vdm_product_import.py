@@ -245,6 +245,7 @@ def main():
                 bestaand   = bestaande[arintnum]
                 if arintnum == "425":
                     log.info(f"DEBUG 425: type={bestaand['product_type']}, tags={bestaand['tags'][:80]}")
+                    log.info(f"DEBUG 425: product_type uit mapping={product_type}, tags uit mapping={tags}")
                 product_id = bestaand['product_id']
                 variant_id = bestaand['variant_id']
 
@@ -285,12 +286,18 @@ def main():
                     update['product_type'] = product_type
                     log.info(f"  Type update {arintnum}: {bestaand['product_type']} → {product_type}")
                 if update:
+                    log.info(f"  UPDATE {arintnum}: {update}")
                     r = requests.put(f"{BASE}/products/{product_id}.json",
                                      headers=HEADERS,
                                      json={"product": update})
                     if r.status_code != 200:
-                        log.warning(f"Tags/type update fout {arintnum}: {r.status_code}")
+                        log.warning(f"Tags/type update fout {arintnum}: {r.status_code} {r.text[:100]}")
+                    else:
+                        log.info(f"  UPDATE {arintnum} OK")
                     time.sleep(0.3)
+                else:
+                    if arintnum == "425":
+                        log.info(f"DEBUG 425: geen update nodig - bestaande_tags_lower={set(t.lower() for t in bestaand['tags'].split(',') if t.strip())}, onze_tags_lower={set(t.lower() for t in tags)}")
 
                 # Foto uploaden als die ontbreekt
                 if not bestaand['heeft_foto'] and foto_b64:
