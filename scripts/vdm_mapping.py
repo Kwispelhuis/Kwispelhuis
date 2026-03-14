@@ -10,7 +10,7 @@ SUBGROEP_MAPPING = {
     "Natvoer":                      {"type": "Voeding",             "tags": ["voeding", "natvoer"]},
 
     # SNACKS
-    "Snacks Gedroogd":              {"type": "Hondensnacks",        "tags": ["snacks", "gedroogd"]},
+    "Snacks Gedroogd":              {"type": "Hondensnacks",        "tags": ["snacks", "Gedroogd"]},
     "Snacks Gist":                  {"type": "Hondensnacks",        "tags": ["snacks", "gist"]},
     "Snacks Hard":                  {"type": "Hondensnacks",        "tags": ["snacks", "hard"]},
     "Snacks Kauw":                  {"type": "Hondensnacks",        "tags": ["snacks", "kauwsnacks"]},
@@ -25,21 +25,21 @@ SUBGROEP_MAPPING = {
     # MANDEN & KUSSENS
     "Bedden/Manden/Kussens":        {"type": "Manden & Kussens",    "tags": []},
     "Bedden/Manden/kussens":        {"type": "Manden & Kussens",    "tags": []},
-    "Pantoffels":                   {"type": "Manden & Kussens",    "tags": ["kussens"]},
+    "Pantoffels":                   {"type": "Manden & Kussens",    "tags": ["Kussens"]},
 
     # HALSBANDEN & LIJNEN
-    "Halsbanden/Lijnen Leer":       {"type": "Halsbanden & Lijnen", "tags": ["halsbanden", "leer"]},
-    "Halsbanden/Lijnen Nylon":      {"type": "Halsbanden & Lijnen", "tags": ["halsbanden", "nylon"]},
+    "Halsbanden/Lijnen Leer":       {"type": "Halsbanden & Lijnen", "tags": ["halsbanden", "Leer"]},
+    "Halsbanden/Lijnen Nylon":      {"type": "Halsbanden & Lijnen", "tags": ["halsbanden", "Nylon"]},
     "Halsbanden/Lijnen Overig":     {"type": "Halsbanden & Lijnen", "tags": ["halsbanden"]},
     "Halsbanden":                   {"type": "Halsbanden & Lijnen", "tags": ["halsbanden"]},
     "Lijnen":                       {"type": "Halsbanden & Lijnen", "tags": ["halsbanden"]},
 
     # VERZORGING
-    "Shampoo":                      {"type": "Verzorging",          "tags": ["verzorging", "shampoo"]},
+    "Shampoo":                      {"type": "Verzorging",          "tags": ["verzorging", "Shampoo"]},
     "Conditioners":                 {"type": "Verzorging",          "tags": ["verzorging", "conditioner"]},
     "Conditioner":                  {"type": "Verzorging",          "tags": ["verzorging", "conditioner"]},
     "Parfum":                       {"type": "Verzorging",          "tags": ["verzorging", "parfum"]},
-    "Antistatic":                   {"type": "Verzorging",          "tags": ["verzorging", "antistatic"]},
+    "Antistatic":                   {"type": "Verzorging",          "tags": ["verzorging", "Antistatic"]},
     "Volume":                       {"type": "Verzorging",          "tags": ["verzorging", "volume"]},
     "Ontklitters En Ontwollers":    {"type": "Verzorging",          "tags": ["verzorging", "ontklitter"]},
     "Ontklitters en Ontwollers":    {"type": "Verzorging",          "tags": ["verzorging", "ontklitter"]},
@@ -49,13 +49,13 @@ SUBGROEP_MAPPING = {
     "Verzorgingsproducten":         {"type": "Verzorging",          "tags": ["verzorging"]},
 
     # TRIMMEN & GROOMING
-    "Borstels":                     {"type": "Trimgereedschap",     "tags": ["grooming", "borstels"]},
-    "Kammen/Borstels":              {"type": "Trimgereedschap",     "tags": ["grooming", "kammen"]},
-    "Kammen":                       {"type": "Trimgereedschap",     "tags": ["grooming", "kammen"]},
-    "Pinnenborstels":               {"type": "Trimgereedschap",     "tags": ["grooming", "pinnenborstels"]},
-    "Trimaccessoires":              {"type": "Trimgereedschap",     "tags": ["grooming", "trimaccessoires"]},
-    "Trimmessen":                   {"type": "Trimgereedschap",     "tags": ["grooming", "trimmessen"]},
-    "Trimstenen":                   {"type": "Trimgereedschap",     "tags": ["grooming", "trimstenen"]},
+    "Borstels":                     {"type": "Trimgereedschap",     "tags": ["grooming", "Borstels"]},
+    "Kammen/Borstels":              {"type": "Trimgereedschap",     "tags": ["grooming", "Kammen"]},
+    "Kammen":                       {"type": "Trimgereedschap",     "tags": ["grooming", "Kammen"]},
+    "Pinnenborstels":               {"type": "Trimgereedschap",     "tags": ["grooming", "Pinnenborstels"]},
+    "Trimaccessoires":              {"type": "Trimgereedschap",     "tags": ["grooming", "Trimaccessoires"]},
+    "Trimmessen":                   {"type": "Trimgereedschap",     "tags": ["grooming", "Trimmessen"]},
+    "Trimstenen":                   {"type": "Trimgereedschap",     "tags": ["grooming", "Trimstenen"]},
 
     # GEZONDHEID
     "Bestrijdingsartikelen":        {"type": "Gezondheid",          "tags": ["gezondheid", "vlooien"]},
@@ -88,9 +88,9 @@ def titelherkenning(titel: str, huidige_tags: list, product_type: str) -> list:
     # MANDEN & KUSSENS
     if product_type == "Manden & Kussens":
         if any(w in t for w in ["mand", "ligmand", "reismand", "transportmand"]):
-            extra_tags.add("manden")
+            extra_tags.add("Manden")
         if any(w in t for w in ["kussen", "slaapkussen", "hondenku"]):
-            extra_tags.add("kussens")
+            extra_tags.add("Kussens")
         bed_woorden = ["hondenbed", "slaapbed", "ligbed", "matras", "ligmat", "donut"]
         if any(w in t for w in bed_woorden):
             extra_tags.add("bedden")
@@ -130,13 +130,13 @@ def titelherkenning(titel: str, huidige_tags: list, product_type: str) -> list:
         if any(w in t for w in ["parfum", "spray", "cologne", "bodyspray"]):
             extra_tags.add("parfum")
         if "antistatic" in t or "anti-static" in t:
-            extra_tags.add("antistatic")
+            extra_tags.add("Antistatic")
         if "volume" in t:
             extra_tags.add("volume")
         if any(w in t for w in ["poot", "poten", "teer", "zool"]):
             extra_tags.add("poten")
         if any(w in t for w in ["shampoo", "wassh"]):
-            extra_tags.add("shampoo")
+            extra_tags.add("Shampoo")
         if any(w in t for w in ["conditioner", "conditioneer"]):
             extra_tags.add("conditioner")
 
