@@ -1,5 +1,4 @@
 name: VDM Voorraad Sync
-
 on:
   schedule:
     - cron: '*/15 * * * *'
@@ -11,10 +10,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
       - run: pip install requests
+
+      - name: Cache herstellen (vorige voorraadstand)
+        uses: actions/cache@v4
+        with:
+          path: /tmp/vdm_voorraad_cache.json
+          key: vdm-voorraad-cache
+          restore-keys: vdm-voorraad-cache
+
       - name: Voorraad sync uitvoeren
         env:
           VDM_FTP_HOST: ${{ secrets.VDM_FTP_HOST }}
@@ -24,3 +33,10 @@ jobs:
           SHOPIFY_CLIENT_ID: ${{ secrets.SHOPIFY_CLIENT_ID }}
           SHOPIFY_CLIENT_SECRET: ${{ secrets.SHOPIFY_CLIENT_SECRET }}
         run: python scripts/vdm_voorraad_sync.py
+
+      - name: Cache opslaan (nieuwe voorraadstand)
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: /tmp/vdm_voorraad_cache.json
+          key: vdm-voorraad-cache
